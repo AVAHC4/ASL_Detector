@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# Large Data Files
+Image/
+MP_Data/
+Output/
+
+# Model Files (too large for GitHub)
+*.h5
+best_model*.h5
+newmodel*.h5
+model.h5
+
+# Logs
+logs/
+logs_improved/
+*.log
+
+# Evaluation Results (keep only summary)
+evaluation_26k/
+evaluation_33k/
+evaluation_finalversion/
+evaluation_results/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.bak
