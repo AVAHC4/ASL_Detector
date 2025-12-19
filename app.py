@@ -14,18 +14,23 @@ Features:
     
 import cv2
 import numpy as np
-import mediapipe as mp
 import json
-from tensorflow.keras.models import model_from_json  # type: ignore
 from collections import deque
 import time
+
+# Import tf_keras first
+from tf_keras.models import model_from_json  # type: ignore
+
+# Import only the specific mediapipe components we need
+import mediapipe.python.solutions.hands as mp_hands_module
+import mediapipe.python.solutions.drawing_utils as mp_drawing_module
 
 # ============================================================================
 # MEDIAPIPE INITIALIZATION
 # ============================================================================
 # Initialize MediaPipe Hands solution for hand landmark detection
-mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
+mp_hands = mp_hands_module
+mp_drawing = mp_drawing_module
 
 # ============================================================================
 # MODEL LOADING
@@ -70,6 +75,14 @@ COLOR_ROI = (0, 180, 255)        # Cyan - Region of Interest border
 # ============================================================================
 # Initialize webcam with HD resolution
 cap = cv2.VideoCapture(0)
+
+# Check if camera opened successfully
+if not cap.isOpened():
+    print("❌ Error: Cannot open camera. Please check:")
+    print("   1. Camera is connected")
+    print("   2. Camera permissions are granted to Terminal/Python")
+    print("   3. No other application is using the camera")
+    exit(1)
 
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -315,9 +328,10 @@ def draw_glowing_text(img, text, pos, font_scale, color, thickness, glow_color=N
 # ============================================================================
 # WINDOW SETUP
 # ============================================================================
-# Create fullscreen window for application
+# Create resizable window for application (removed fullscreen to avoid macOS issues)
 cv2.namedWindow("SIGN LANGUAGE RECOGNITION SYSTEM", cv2.WINDOW_NORMAL)
-cv2.setWindowProperty("SIGN LANGUAGE RECOGNITION SYSTEM", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+# Maximize window instead of fullscreen
+cv2.resizeWindow("SIGN LANGUAGE RECOGNITION SYSTEM", 1280, 720)
 
 # ============================================================================
 # STARTUP MESSAGE

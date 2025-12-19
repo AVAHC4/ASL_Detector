@@ -13,6 +13,7 @@ env/
 Image/
 MP_Data/
 Output/
+*.zip
 
 # Model Files (too large for GitHub)
 *.h5
