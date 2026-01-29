@@ -11,7 +11,7 @@ env/
 
 # Large Data Files
 Image/
-MP_Data/
+MP_Data*/
 Output/
 *.zip
 
@@ -22,8 +22,7 @@ newmodel*.h5
 model.h5
 
 # Logs
-logs/
-logs_improved/
+logs*/
 *.log
 
 # Evaluation Results (keep only summary)

@@ -73,7 +73,7 @@ def create_architecture_diagram():
     ax.add_patch(FancyBboxPatch((3.5, 5), 3, 2, 
                                 boxstyle="round,pad=0.15", 
                                 facecolor=model_color, edgecolor='darkgreen', linewidth=3))
-    ax.text(5, 6.5, 'LSTM Neural Network', ha='center', va='center', 
+    ax.text(5, 6.5, 'Bidirectional LSTM + Attention', ha='center', va='center', 
             fontsize=12, fontweight='bold')
     ax.text(5, 6, 'Model: best_model_improved.h5', ha='center', va='center', fontsize=9)
     ax.text(5, 5.6, '26 ASL Sign Classes (A-Z)', ha='center', va='center', fontsize=9)
@@ -240,21 +240,23 @@ def create_data_processing_diagram():
                 arrowprops=dict(arrowstyle='->', lw=2, color='black'))
     
     # Step 6: Model Architecture
-    ax.add_patch(FancyBboxPatch((1, y_pos-0.3), 8, 1.6, 
+    ax.add_patch(FancyBboxPatch((1, y_pos-0.8), 8, 2.1, 
                                 boxstyle="round,pad=0.15", 
                                 facecolor='#A5D6A7', edgecolor='darkgreen', linewidth=3))
-    ax.text(5, y_pos+0.9, '6. LSTM Neural Network', 
+    ax.text(5, y_pos+0.9, '6. Bidirectional LSTM + Attention', 
             ha='center', va='center', fontsize=12, fontweight='bold')
-    ax.text(5, y_pos+0.55, 'Layer 1: LSTM(64) + Dropout(0.2)', 
+    ax.text(5, y_pos+0.55, 'Layer 1: Bidirectional LSTM(128) + Dropout(0.4)', 
             ha='center', va='center', fontsize=8, family='monospace')
-    ax.text(5, y_pos+0.3, 'Layer 2: LSTM(128) + Dropout(0.2)', 
+    ax.text(5, y_pos+0.35, 'Layer 2: Bidirectional LSTM(160) + Dropout(0.4)', 
             ha='center', va='center', fontsize=8, family='monospace')
-    ax.text(5, y_pos+0.05, 'Layer 3: LSTM(64) + Dropout(0.2)', 
+    ax.text(5, y_pos+0.15, 'Layer 3: Bidirectional LSTM(128) + Dropout(0.4)', 
             ha='center', va='center', fontsize=8, family='monospace')
-    ax.text(5, y_pos-0.2, 'Dense Layer: 26 units (softmax) → A-Z classification', 
+    ax.text(5, y_pos-0.05, 'Attention Layer: Focus on key frames', 
+            ha='center', va='center', fontsize=8, family='monospace')
+    ax.text(5, y_pos-0.25, 'Dense Layers: 256 → 128 → 26 (Softmax)', 
             ha='center', va='center', fontsize=8, family='monospace')
     
-    y_pos -= 1.8
+    y_pos -= 2.3
     ax.annotate('', xy=(5, y_pos+0.9), xytext=(5, y_pos+1.1),
                 arrowprops=dict(arrowstyle='->', lw=2, color='black'))
     

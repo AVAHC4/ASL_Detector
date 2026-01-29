@@ -30,8 +30,8 @@ from pathlib import Path
 # ============================================================================
 # CONFIGURATION SETTINGS
 # ============================================================================
-ROI_WIDTH_RATIO = 0.30      # ROI width as fraction of frame width (30%)
-ROI_HEIGHT_RATIO = 0.50     # ROI height as fraction of frame height (50%)
+ROI_WIDTH_RATIO = 0.50      # ROI width as fraction of frame width (50%)
+ROI_HEIGHT_RATIO = 0.60     # ROI height as fraction of frame height (60%)
 SAVE_EVERY_MS = 90          # Capture interval in milliseconds (11 fps)
 SESSION_LIMIT = 300         # Maximum images per letter per session
 CAM_INDEX = 0               # Camera device index (0 = default camera)

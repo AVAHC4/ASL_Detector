@@ -11,36 +11,64 @@ Features:
 - Word builder with keyboard controls
 - Modern cyberpunk UI design
 """
-    
+
 import cv2
 import numpy as np
 import json
 from collections import deque
 import time
 
-# Import tf_keras first
-from tf_keras.models import model_from_json  # type: ignore
-
-# Import only the specific mediapipe components we need
-import mediapipe.python.solutions.hands as mp_hands_module
-import mediapipe.python.solutions.drawing_utils as mp_drawing_module
+# Import mediapipe components for the new API
+import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+from data import KeypointNormalizer
 
 # ============================================================================
 # MEDIAPIPE INITIALIZATION
 # ============================================================================
-# Initialize MediaPipe Hands solution for hand landmark detection
-mp_hands = mp_hands_module
-mp_drawing = mp_drawing_module
+BaseOptions = python.BaseOptions
+HandLandmarker = vision.HandLandmarker
+HandLandmarkerOptions = vision.HandLandmarkerOptions
+VisionRunningMode = vision.RunningMode
+
+import tensorflow as tf
+from keras.layers import Layer
+from keras.models import model_from_json
+
+class AttentionLayer(Layer):
+    def __init__(self, **kwargs):
+        super(AttentionLayer, self).__init__(**kwargs)
+    
+    def build(self, input_shape):
+        self.W = self.add_weight(name='att_weight', 
+                                 shape=(input_shape[-1], input_shape[-1]),
+                                 initializer='glorot_uniform', 
+                                 trainable=True)
+        self.b = self.add_weight(name='att_bias', 
+                                 shape=(input_shape[-1],),
+                                 initializer='zeros', 
+                                 trainable=True)
+        super(AttentionLayer, self).build(input_shape)
+    
+    def call(self, x):
+        e = tf.keras.activations.tanh(tf.tensordot(x, self.W, axes=1) + self.b)
+        a = tf.keras.activations.softmax(e, axis=1)
+        output = x * a
+        # Explicitly cast to float32 to avoid type issues with mixed precision
+        return tf.cast(tf.reduce_sum(output, axis=1), dtype=tf.float32)
 
 # ============================================================================
 # MODEL LOADING
 # ============================================================================
 # Load pre-trained LSTM model architecture from JSON
-with open("model(0.2).json", "r") as f:
-    model = model_from_json(f.read())
+with open("model_signer_disjoint.json", "r") as f:
+    # Load model with custom layer using Keras 3
+    model = model_from_json(f.read(), custom_objects={'AttentionLayer': AttentionLayer})
 
 # Load trained weights into the model
-model.load_weights("newmodel(0.2).h5")
+# NOTE: Using the new normalized model for robustness
+model.load_weights("best_model_normalized.h5")
 
 # ============================================================================
 # CONFIGURATION PARAMETERS
@@ -87,17 +115,19 @@ if not cap.isOpened():
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-# Configure MediaPipe Hands with optimized parameters
-hands = mp_hands.Hands(
-    static_image_mode=False,        # Process video stream (not static images)
-    max_num_hands=1,                # Detect only one hand for better performance
-    min_detection_confidence=0.6,   # Minimum confidence for initial detection
-    min_tracking_confidence=0.6     # Minimum confidence for tracking across frames
+# Configure MediaPipe Hand Landmarker with optimized parameters
+options = HandLandmarkerOptions(
+    base_options=BaseOptions(model_asset_path='hand_landmarker.task'),
+    running_mode=VisionRunningMode.IMAGE,
+    num_hands=1,
+    min_hand_detection_confidence=0.6,
+    min_hand_presence_confidence=0.6,
+    min_tracking_confidence=0.6
 )
 
-# ============================================================================
-# STATE VARIABLES
-# ============================================================================
+landmarker = HandLandmarker.create_from_options(options)
+
+
 sequence = []                       # Rolling buffer of hand keypoints for sequence prediction
 predictions = []                    # Recent prediction indices for consistency checking
 current_letter = ""                 # Currently detected letter
@@ -109,9 +139,6 @@ last_letter = ""                    # Last letter added to prevent duplicates
 last_recognition_time = 0           # Timestamp of last successful recognition
 
 
-# ============================================================================
-# UI DRAWING FUNCTIONS
-# ============================================================================
 
 def draw_gradient_rect(img, pt1, pt2, color1, color2, alpha=0.3):
     """
@@ -352,6 +379,12 @@ while True:
     if not ret:
         break  # Exit if camera fails
 
+    h, w, _ = frame.shape  # Get frame dimensions
+    # Mirror effect
+    frame = cv2.flip(frame, 1)
+
+    hand_detected = False
+    
     # ========================================================================
     # FPS CALCULATION
     # ========================================================================
@@ -380,57 +413,95 @@ while True:
     # Extract ROI from frame for processing
     roi = frame[y1:y2, x1:x2]
 
+    # ============================================================================
+    # ROI DEFINITION (REGION OF INTEREST)
+    # ============================================================================
+    # Calculate box dimensions - INCREASED ROI for better usability
+    # Width: 50% of screen | Height: 60% of screen
+    w_roi = int(w * 0.50)
+    h_roi = int(h * 0.60)
+    
+    # Calculate box position (Centered)
+    x_roi = int((w - w_roi) / 2)
+    y_roi = int((h - h_roi) / 2)
+    
+    # Draw the ROI box (Main interactive area)
+    # Color changes based on hand detection state for feedback
+    box_color = COLOR_PRIMARY if hand_detected else COLOR_SECONDARY
+    cv2.rectangle(frame, (x_roi, y_roi), (x_roi + w_roi, y_roi + h_roi), box_color, 2)
+    
+    # Add label to ROI
+    cv2.putText(frame, "Active Area", (x_roi, y_roi - 10), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.6, box_color, 2)
+
     # ========================================================================
     # HAND DETECTION AND KEYPOINT EXTRACTION
     # ========================================================================
     # Convert BGR to RGB (MediaPipe requirement)
-    image = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
-    results = hands.process(image)
+    rgb_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_roi)
+    
+    # Detect hand landmarks
+    results = landmarker.detect(mp_image)
 
     # Initialize keypoints array (21 landmarks × 3 coordinates = 63 values)
     keypoints = np.zeros(63)
     hand_detected = False
 
-    if results.multi_hand_landmarks:
+    if results.hand_landmarks:
         hand_detected = True
-        hand_landmarks = results.multi_hand_landmarks[0]  # Get first hand
+        hand_landmarks = results.hand_landmarks[0]  # Get first hand
         
         # Extract 3D coordinates (x, y, z) for all 21 landmarks
         pts = []
-        for lm in hand_landmarks.landmark:
+        for lm in hand_landmarks:
             pts.append([lm.x, lm.y, lm.z])
         keypoints = np.array(pts).flatten()  # Flatten to 1D array (63 values)
+        
+        # NORMALIZE KEYPOINTS
+        # Center and scale keypoints to be invariant to hand size and ROI position
+        keypoints = KeypointNormalizer.normalize(keypoints)
 
         # Draw hand landmarks on ROI with custom colors
-        mp_drawing.draw_landmarks(
-            roi, 
-            hand_landmarks, 
-            mp_hands.HAND_CONNECTIONS,
-            mp_drawing.DrawingSpec(color=COLOR_PRIMARY, thickness=2, circle_radius=3),  # Landmarks
-            mp_drawing.DrawingSpec(color=COLOR_SECONDARY, thickness=2, circle_radius=2)  # Connections
-        )
+        for idx, landmark in enumerate(hand_landmarks):
+            x_px = int(landmark.x * roi_w)
+            y_px = int(landmark.y * roi_h)
+            cv2.circle(roi, (x_px, y_px), 5, COLOR_PRIMARY, -1)
+        
+        # Draw connections between landmarks
+        connections = [
+            (0, 1), (1, 2), (2, 3), (3, 4),  # Thumb
+            (0, 5), (5, 6), (6, 7), (7, 8),  # Index finger
+            (0, 9), (9, 10), (10, 11), (11, 12),  # Middle finger
+            (0, 13), (13, 14), (14, 15), (15, 16),  # Ring finger
+            (0, 17), (17, 18), (18, 19), (19, 20),  # Pinky
+            (5, 9), (9, 13), (13, 17)  # Palm
+        ]
+        for connection in connections:
+            start_idx, end_idx = connection
+            start = hand_landmarks[start_idx]
+            end = hand_landmarks[end_idx]
+            start_point = (int(start.x * roi_w), int(start.y * roi_h))
+            end_point = (int(end.x * roi_w), int(end.y * roi_h))
+            cv2.line(roi, start_point, end_point, COLOR_SECONDARY, 2)
 
-    # ========================================================================
-    # SEQUENCE MANAGEMENT AND PREDICTION
-    # ========================================================================
-    # Add current keypoints to sequence buffer
+
     sequence.append(keypoints)
-    sequence = sequence[-sequence_length:]  # Keep only last 30 frames
+    sequence = sequence[-sequence_length:] 
 
-    # Make prediction when we have a full sequence
+
     if len(sequence) == sequence_length:
-        # Prepare input for model (add batch dimension)
+       
         input_data = np.expand_dims(np.array(sequence), axis=0)
         
-        # Get model predictions (probability for each letter)
+       
         res = model.predict(input_data, verbose=0)[0]
         
-        # Get predicted letter index
         pred_index = int(np.argmax(res))
         predictions.append(pred_index)
-        predictions = predictions[-consistency_len:]  # Keep last 12 predictions
+        predictions = predictions[-consistency_len:] 
 
-        # Get confidence score
+ 
         confidence = float(np.max(res))
         confidence_history.append(confidence)
 
@@ -591,6 +662,6 @@ while True:
 # ============================================================================
 # Release camera and close all windows
 cap.release()
-hands.close()
+landmarker.close()
 cv2.destroyAllWindows()
 print("✅ System shutdown complete")
