@@ -25,11 +25,13 @@ model.h5
 logs*/
 *.log
 
-# Evaluation Results (keep only summary)
+# Evaluation Results
 evaluation_26k/
 evaluation_33k/
 evaluation_finalversion/
 evaluation_results/
+!evaluation_results/evaluation_report.txt
+!evaluation_results/classification_report.json
 
 # OS Files
 .DS_Store

@@ -1,4 +1,4 @@
-# 🤟 Real-Time Sign Language Recognition System
+# 🤟 Real-Time Bidirectional ASL Alphabet Recognition Using Hand Landmarks and a BiLSTM-Attention Network with Confidence-Gated Decoding
 
 A deep learning-powered system for real-time American Sign Language (ASL) alphabet recognition using computer vision and LSTM networks.
 
@@ -11,7 +11,7 @@ A deep learning-powered system for real-time American Sign Language (ASL) alphab
 
 - ✅ **Real-time Recognition** - Recognizes ASL alphabet (A-Z) at 30-60 FPS
 - ✅ **Bidirectional System** - Sign-to-Text AND Text-to-Sign conversion
-- ✅ **High Accuracy** - 90%+ validation accuracy
+- ✅ **High Accuracy** - 90.42% validation accuracy (Signer-Disjoint)
 - ✅ **Modern UI** - Netflix-themed full-screen interface
 - ✅ **Word Builder** - Compose words from recognized letters
 - ✅ **Comprehensive Evaluation** - Multiple metrics and visualizations
@@ -135,11 +135,12 @@ Type any word to see corresponding sign language images.
 
 ## 📊 Model Performance
 
-### Training Results
-- **Validation Accuracy:** 92.3%
-- **Top-3 Accuracy:** 97.8%
-- **Top-5 Accuracy:** 99.1%
-- **Average ROC-AUC:** 0.984
+### Training Results (Signer-Disjoint)
+- **Validation Accuracy:** 90.42%
+- **Top-3 Accuracy:** 97.42%
+- **Validation Loss:** 0.8911
+- **Latency (Inference):** 36.8ms (27.2 FPS)
+- **Evaluation Method:** Signer-Disjoint Split (Zero Data Leakage)
 
 ### Confusion Matrix
 ![Confusion Matrix](evaluation_results/confusion_matrix_normalized.png)

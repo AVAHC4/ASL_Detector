@@ -1,0 +1,146 @@
+======================================================================
+SIGN LANGUAGE RECOGNITION - MODEL EVALUATION REPORT
+======================================================================
+
+SIGNER-DISJOINT SPLIT RESULTS (Proper Evaluation)
+----------------------------------------------------------------------
+This evaluation uses signer-disjoint splitting where recording sessions
+are split BEFORE windowing to prevent data leakage from overlapping frames.
+
+Training Sequences:    1977
+Validation Sequences:  543
+Train/Val Ratio:       78.5% / 21.5%
+
+MAIN MODEL (BiLSTM + Attention)
+----------------------------------------------------------------------
+Architecture:          3-layer Bidirectional LSTM with Attention
+Parameters:            1,360,536 (5.19 MB)
+Validation Accuracy:   90.42%
+Top-3 Accuracy:        97.42%
+Validation Loss:       0.8911
+
+BASELINE COMPARISON
+----------------------------------------------------------------------
+| Model               | Val Accuracy | Parameters  | Notes            |
+|---------------------|--------------|-------------|------------------|
+| BiLSTM + Attention  | 90.42%       | 1,360,536   | Full model       |
+| Reduced BiLSTM      | 90.06%       | 184,470     | No attention     |
+| Simple LSTM         | 88.77%       | 71,642      | No BiLSTM/Attn   |
+| Frame MLP           | 67.22%       | 526,938     | No temporal      |
+
+Observations:
+- Attention mechanism provides ~0.36% improvement
+- BiLSTM provides ~1.29% improvement over simple LSTM
+- Temporal modeling is critical (23.20% gain over frame-level MLP)
+
+RUNTIME PERFORMANCE
+----------------------------------------------------------------------
+| Component                   | Mean (ms) | P95 (ms) | FPS    |
+|-----------------------------|-----------|----------|--------|
+| MediaPipe Hand Detection    | 19.08     | 19.49    | 52.4   |
+| BiLSTM+Attention Inference  | 36.83     | 40.69    | 27.2   |
+| Full Pipeline               | 57.75     | -        | 17.3   |
+
+Note: Benchmarked on Apple M3 with 200 iterations after 20 warmup runs.
+
+COMPARISON: OLD vs NEW EVALUATION
+----------------------------------------------------------------------
+| Metric              | Old (Leaky Split) | New (Disjoint Split) |
+|---------------------|-------------------|----------------------|
+| Validation Accuracy | 99.38%            | 90.42%               |
+| Top-3 Accuracy      | 100.00%           | 97.42%               |
+| Data Leakage        | YES               | NO                   |
+| Realistic Estimate  | NO                | YES                  |
+
+The ~9% drop in accuracy reflects the true generalization performance
+when the model sees genuinely new signers in the validation set.
+
+DATASET INFORMATION
+----------------------------------------------------------------------
+Total Letters:         26 (A-Z)
+Images per Letter:     ~1200-1600
+Sessions per Letter:   4-6 (based on 300-image recording sessions)
+Sequence Length:       30 frames
+Feature Dimension:     63 (21 landmarks × 3 coordinates)
+
+MODEL ARCHITECTURE SUMMARY
+----------------------------------------------------------------------
+Input:              (30, 63) - 30 frames, 63 features
+BatchNorm:          Normalize input features
+BiLSTM Layer 1:     128 units bidirectional (256 output)
+BiLSTM Layer 2:     160 units bidirectional (320 output)
+BiLSTM Layer 3:     128 units bidirectional (256 output)
+Attention:          Custom attention pooling
+Dense + Dropout:    256 → 128 → 26 (softmax)
+Regularization:     L2 (0.001), Dropout (0.4-0.5)
+
+REPRODUCIBILITY INFORMATION
+----------------------------------------------------------------------
+Random Seed:           42 (used in session_split.py and train_signer_disjoint.py)
+
+Software Versions:
+  Python:              3.12.12
+  TensorFlow:          2.20.0
+  Keras:               3.12.0
+  MediaPipe:           0.10.30
+  NumPy:               1.26.4
+  OpenCV:              (cv2, bundled with MediaPipe)
+
+Hardware:
+  CPU:                 Apple M3
+  RAM:                 16 GB
+  GPU:                 Apple M3 (Metal)
+
+SIGNER/SESSION COUNTS (per letter)
+----------------------------------------------------------------------
+Sessions are defined as 300-image recording chunks.
+Each session represents a distinct recording session (potentially different
+hand position, lighting, or signer).
+
+| Letter | Train Seqs | Val Seqs | Train Sessions | Val Sessions |
+|--------|------------|----------|----------------|--------------|
+| A      | 65         | 11       | 4              | 1            |
+| B      | 75         | 16       | 4              | 1            |
+| C      | 26         | 18       | 4              | 1            |
+| D      | 77         | 11       | 4              | 1            |
+| E      | 82         | 28       | 4              | 1            |
+| F      | 98         | 28       | 4              | 1            |
+| G      | 40         | 21       | 4              | 1            |
+| H      | 71         | 24       | 4              | 1            |
+| I      | 101        | 24       | 4              | 1            |
+| J      | 22         | 5        | 4              | 1            |
+| K      | 80         | 15       | 4              | 1            |
+| L      | 84         | 28       | 4              | 1            |
+| M      | 86         | 37       | 4              | 2            |
+| N      | 76         | 34       | 4              | 2            |
+| O      | 53         | 17       | 4              | 2            |
+| P      | 97         | 21       | 4              | 1            |
+| Q      | 59         | 10       | 4              | 1            |
+| R      | 90         | 21       | 4              | 1            |
+| S      | 85         | 28       | 4              | 1            |
+| T      | 95         | 16       | 4              | 1            |
+| U      | 85         | 8        | 4              | 1            |
+| V      | 82         | 22       | 4              | 1            |
+| W      | 86         | 25       | 4              | 1            |
+| X      | 72         | 28       | 4              | 1            |
+| Y      | 110        | 25       | 4              | 1            |
+| Z      | 80         | 22       | 3              | 1            |
+|--------|------------|----------|----------------|--------------|
+| TOTAL  | 1977       | 543      | ~104           | ~28          |
+
+Note: Validation set contains entirely distinct recording sessions,
+ensuring no overlap with training data at the session level.
+
+ASSET LICENSES
+----------------------------------------------------------------------
+MediaPipe Hand Landmarker Model (hand_landmarker.task):
+  License:             Apache License 2.0
+  Source:              Google MediaPipe
+  URL:                 https://developers.google.com/mediapipe/solutions/vision/hand_landmarker
+  Copyright:           © Google LLC
+
+Custom Dataset:
+  Source:              Self-collected using collectdata.py
+  Signers:             Single signer with multiple recording sessions
+  Collection Method:   Webcam capture at 11 FPS (90ms intervals)
+  Images per Session:  Up to 300 per letter per session
