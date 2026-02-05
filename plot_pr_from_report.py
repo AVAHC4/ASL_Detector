@@ -16,7 +16,7 @@ sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (14, 10)
 plt.rcParams['font.size'] = 10
 
-# Define all sign language letters (A-Z)
+
 actions = [chr(i) for i in range(ord('A'), ord('Z') + 1)]
 
 
